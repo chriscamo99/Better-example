@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f4eb">
+<title>Morning Routine</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
+    color: #232e23;
+    background: #f6f4eb;
+  }
+  body { margin: 0; }
+  main { width: min(100%, 45rem); margin: auto; padding: clamp(1rem, 5vw, 2.5rem); }
+  header {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(1.25rem, 5vw, 2.25rem);
+    border-radius: 1.5rem;
+    background: #233d30;
+    color: #fff8e8;
+  }
+  header::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 9rem;
+    aspect-ratio: 1;
+    right: -1.25rem;
+    top: -2.25rem;
+    border-radius: 50%;
+    background: #405b41;
+    box-shadow: 0 0 0 .75rem #314d39, 0 0 0 1.5rem #2b4635;
+  }
+  .date { color: #e9d8a9; font-weight: 650; margin: 0 0 .6rem; }
+  h1 { font: 500 clamp(2.225rem, 8vw, 3.65rem)/1.05 Georgia, serif; margin: 0; }
+  header p:last-child { margin: .8rem 0 0; }
+  .week { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin: 1.75rem 0 .75rem; }
+  .week h2, .week p { margin: 0; }
+  .week h2 { font: 500 1.65rem Georgia, serif; }
+  .week p { color: #515c4d; font-size: .9rem; }
+  .habits { display: grid; gap: .85rem; }
+  .habit { background: #fffdf6; border: 1px solid #dedfd1; border-radius: 1.25rem; padding: 1.1rem; }
+  .habit h3 { margin: 0; font-size: 1.2rem; }
+  .duration { color: #515c4d; margin: .25rem 0 .85rem; }
+  progress { display: block; width: 100%; height: .55rem; appearance: none; border: 0; border-radius: 1rem; background: #e8ebde; color: #557654; overflow: hidden; }
+  progress::-webkit-progress-bar { background: #e8ebde; }
+  progress::-webkit-progress-value { background: #557654; border-radius: 1rem; }
+  progress::-moz-progress-bar { background: #557654; border-radius: 1rem; }
+  .stats { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .75rem; margin: .5rem 0 .9rem; font-size: .9rem; }
+  .stats span:first-child { color: #515c4d; }
+  button {
+    width: 100%;
+    min-height: 48px;
+    padding: .7rem 1rem;
+    border: 0;
+    border-radius: .7rem;
+    background: #36583d;
+    color: white;
+    font: 650 1rem system-ui, sans-serif;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:active { background: #243e2b; }
+  button:focus-visible { outline: 3px solid #785021; outline-offset: 3px; }
+  button:disabled { background: #e9eee1; color: #355338; cursor: default; }
+  .status { font-size: .95rem; margin: .9rem .15rem 0; }
+  .status:empty { margin: 0; }
+  @media (min-width: 35rem) { .habits { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="date" id="today"></p>
+    <h1>Morning Routine</h1>
+    <p>Three walks and three reading sessions each week.</p>
+  </header>
+
+  <section aria-labelledby="week-heading">
+    <div class="week">
+      <h2 id="week-heading">This week</h2>
+      <p id="week-dates"></p>
+    </div>
+    <div class="habits">
+      <article class="habit" aria-labelledby="walk-title">
+        <h3 id="walk-title">Walk</h3>
+        <p class="duration">15 minutes</p>
+        <progress id="walk-progress" max="3" value="0" aria-label="Weekly walk goal"></progress>
+        <p class="stats"><span id="walk-count">0 logged</span><strong id="walk-left">3 sessions left</strong></p>
+        <button type="button" id="walk-log" disabled>Log walk</button>
+      </article>
+      <article class="habit" aria-labelledby="reading-title">
+        <h3 id="reading-title">Reading</h3>
+        <p class="duration">10 minutes</p>
+        <progress id="reading-progress" max="3" value="0" aria-label="Weekly reading goal"></progress>
+        <p class="stats"><span id="reading-count">0 logged</span><strong id="reading-left">3 sessions left</strong></p>
+        <button type="button" id="reading-log" disabled>Log reading</button>
+      </article>
+    </div>
+  </section>
+  <p class="status" id="status" role="status"></p>
+  <noscript><p>Open the dashboard in Chrome with JavaScript enabled to log sessions.</p></noscript>
+</main>
+<script>
+  const weeklyGoal = 3;
+  const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const shortDateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const today = document.getElementById('today');
+  const weekDates = document.getElementById('week-dates');
+  const status = document.getElementById('status');
+  const habits = [
+    { id: 'walk', label: 'Walk', buttonLabel: 'Log walk' },
+    { id: 'reading', label: 'Reading', buttonLabel: 'Log reading' }
+  ].map(habit => ({
+    ...habit,
+    prefix: 'morning-routine-v1:' + habit.id + ':',
+    button: document.getElementById(habit.id + '-log'),
+    progress: document.getElementById(habit.id + '-progress'),
+    count: document.getElementById(habit.id + '-count'),
+    left: document.getElementById(habit.id + '-left')
+  }));
+  const storageMessage = 'Browser storage is unavailable. Open the dashboard in a regular Chrome tab to save progress.';
+  let refreshTimer;
+
+  function dateKey(date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return date.getFullYear() + '-' + month + '-' + day;
+  }
+
+  function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
+
+  function refresh() {
+    const now = new Date();
+    const currentDay = dateKey(now);
+    const daysSinceMonday = (now.getDay() + 6) % 7;
+    const monday = addDays(now, -daysSinceMonday);
+    const sunday = addDays(monday, 6);
+    today.textContent = dateFormat.format(now);
+    weekDates.textContent = shortDateFormat.format(monday) + ' – ' + shortDateFormat.format(sunday);
+
+    try {
+      for (const habit of habits) {
+        let count = 0;
+        for (let day = 0; day <= daysSinceMonday; day += 1) {
+          const key = habit.prefix + dateKey(addDays(monday, day));
+          if (localStorage.getItem(key) === '1') count += 1;
+        }
+        const loggedToday = localStorage.getItem(habit.prefix + currentDay) === '1';
+        const remaining = Math.max(0, weeklyGoal - count);
+        habit.progress.value = Math.min(count, weeklyGoal);
+        habit.count.textContent = count + ' logged';
+        habit.left.textContent = remaining + (remaining === 1 ? ' session left' : ' sessions left');
+        habit.button.textContent = loggedToday ? '✓ Logged today' : habit.buttonLabel;
+        habit.button.disabled = loggedToday;
+      }
+    } catch {
+      for (const habit of habits) habit.button.disabled = true;
+      status.textContent = storageMessage;
+    }
+
+    const midnight = addDays(now, 1);
+    midnight.setHours(0, 0, 0, 0);
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      status.textContent = '';
+      refresh();
+    }, midnight - now + 100);
+  }
+
+  for (const habit of habits) {
+    habit.button.addEventListener('click', () => {
+      const key = habit.prefix + dateKey(new Date());
+      try {
+        if (localStorage.getItem(key) !== '1') {
+          localStorage.setItem(key, '1');
+          status.textContent = habit.label + ' logged for today.';
+        }
+      } catch {
+        status.textContent = storageMessage;
+      }
+      refresh();
+    });
+  }
+
+  window.addEventListener('pageshow', refresh);
+  window.addEventListener('focus', refresh);
+  window.addEventListener('storage', refresh);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refresh();
+  });
+  refresh();
+</script>
+</body>
+</html>
